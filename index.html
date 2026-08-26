@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중세 권력 생존 게임 ― 하인리히 4세, 왕위를 지켜라!</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 네오둥근모 웹폰트 적용 (8비트/16비트 레트로 픽셀 감성) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm/style.css">
+    <!-- html2canvas (인스타그램 카드 이미지 다운로드) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- canvas-confetti (축하 폭죽 효과) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'NeoDunggeunmo', sans-serif;
+            background-color: #0b0c10;
+            background-image: radial-gradient(#374151 2px, transparent 2px);
+            background-size: 24px 24px;
+            color: #f3f4f6;
+            -webkit-font-smoothing: none;
+            text-shadow: 1px 1px 0px rgba(0,0,0,0.8);
+        }
+        .game-window {
+            border: 4px solid #1f2937;
+            background-color: #111318;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.95), 0 0 30px rgba(59, 130, 246, 0.2);
+        }
+        .panel-box {
+            border: 2px solid #374151;
+            background-color: #1a1c23;
+        }
+        .pixel-btn {
+            border: 2px solid #4b5563;
+            background-color: #1f2937;
+            box-shadow: 3px 3px 0px #000;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s;
+            text-shadow: 1px 1px 0px rgba(0,0,0,0.8);
+        }
+        .pixel-btn:hover {
+            transform: translate(-1px, -1px);
+            box-shadow: 4px 4px 0px #000;
+            background-color: #374151;
+        }
+        .pixel-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px #000;
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+        .progress-bar-transition {
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div id="game-container" class="w-full max-w-2xl game-window rounded-sm overflow-hidden relative flex flex-col">
+        
+        <!-- 레트로 오락실 타이틀바 -->
+        <div class="bg-slate-950 px-4 py-2 flex justify-between items-center border-b-2 border-slate-800 text-xs text-slate-400 select-none">
+            <div class="flex items-center space-x-2">
+                <span class="w-3 h-3 bg-red-500 inline-block shadow-sm"></span>
+                <span class="w-3 h-3 bg-yellow-500 inline-block shadow-sm"></span>
+                <span class="w-3 h-3 bg-green-500 inline-block shadow-sm"></span>
+                <span class="ml-2 text-slate-300 tracking-wider">HENRY_IV_SIM_1077.exe [RPG ARCADE]</span>
+            </div>
+            <div class="text-indigo-400 text-[11px]">[v3.0 FULL SCENARIO]</div>
+        </div>
+
+        <div class="p-6 space-y-6 flex-1 flex flex-col justify-between">
+            
+            <div class="space-y-6">
+                <div id="status-bar" class="hidden flex justify-between items-center bg-slate-900 p-3 panel-box text-sm md:text-base shadow-inner">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-yellow-400">👑 왕권:</span>
+                        <span id="king-power" class="text-yellow-300">50</span>%
+                        <div class="w-20 md:w-28 bg-slate-950 h-4 border-2 border-slate-700 ml-1">
+                            <div id="power-bar" class="bg-yellow-400 h-full progress-bar-transition" style="width: 50%;"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-blue-400">✝️ 교황 관계:</span>
+                        <span id="pope-relation" class="text-blue-300">50</span>%
+                        <div class="w-20 md:w-28 bg-slate-950 h-4 border-2 border-slate-700 ml-1">
+                            <div id="pope-bar" class="bg-blue-500 h-full progress-bar-transition" style="width: 50%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 동적 컨텐츠 출력 영역 -->
+                <div id="content-area" class="space-y-6">
+                    <!-- JS로 동적 렌더링 -->
+                </div>
+            </div>
+
+            <div id="back-btn-container" class="hidden pt-6 mt-4 border-t-2 border-slate-800 flex justify-start">
+                <button onclick="prevStage()" class="pixel-btn bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs md:text-sm text-slate-200 flex items-center space-x-2">
+                    <span>◀ 이전 단계로 돌아가기</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="feedback-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 panel-box p-6 max-w-md w-full space-y-5 text-center shadow-2xl border-4 border-slate-700">
+            <h3 id="modal-title" class="text-2xl text-yellow-300 mb-2"></h3>
+            <p id="modal-desc" class="text-sm md:text-base leading-relaxed text-slate-200 break-keep"></p>
+            <button id="modal-btn" onclick="closeModal()" class="pixel-btn bg-indigo-600 hover:bg-indigo-500 px-6 py-3 text-white text-lg w-full mt-4">
+                확인
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 📌 선생님의 게시판 주소(URL)를 여기에 설정하세요!
+        const BOARD_URL = "https://quizn.show/pbd/info/board/0033043"; 
+
+        let currentStage = 0; // 0: 표지, 1~5: 게임 스테이지, 6: 인스타그램 활동
+        let historyStack = [];
+        let kingPower = 50;
+        let popeRelation = 50;
+
+        function saveState() {
+            historyStack.push({
+                stage: currentStage,
+                power: kingPower,
+                pope: popeRelation
+            });
+        }
+
+        function renderStage() {
+            const container = document.getElementById('content-area');
+            const statusBar = document.getElementById('status-bar');
+            const backBtnContainer = document.getElementById('back-btn-container');
+
+            if (currentStage === 0) {
+                statusBar.classList.add('hidden');
+                backBtnContainer.classList.add('hidden');
+                renderTitleScreen(container);
+            } else {
+                statusBar.classList.remove('hidden');
+                backBtnContainer.classList.remove('hidden');
+                updateStatusBar();
+
+                if (currentStage === 1) renderStage1();
+                else if (currentStage === 2) renderStage2();
+                else if (currentStage === 3) renderStage3();
+                else if (currentStage === 4) renderStage4();
+                else if (currentStage === 5) renderStage5();
+                else if (currentStage === 6) renderStage6();
+            }
+        }
+
+        function updateStatusBar() {
+            document.getElementById('king-power').innerText = kingPower;
+            document.getElementById('power-bar').style.width = kingPower + '%';
+            document.getElementById('pope-relation').innerText = popeRelation;
+            document.getElementById('pope-bar').style.width = popeRelation + '%';
+        }
+
+        function nextStage() {
+            saveState();
+            currentStage++;
+            renderStage();
+        }
+
+        function prevStage() {
+            if (historyStack.length > 0) {
+                const prevState = historyStack.pop();
+                currentStage = prevState.stage;
+                kingPower = prevState.power;
+                popeRelation = prevState.pope;
+                renderStage();
+            } else if (currentStage > 1) {
+                currentStage--;
+                renderStage();
+            }
+        }
+
+        function goToBoard() {
+            showModal(
+                "📌 게시판 제출 안내",
+                "게시물 등록 시 <strong>[게시물 제목]에 학번+이름</strong>을 반드시 입력해 주세요!<br><br><span class='text-yellow-300 font-bold'>예시: 10101 홍길동</span>",
+                true,
+                function() {
+                    window.open(BOARD_URL, '_blank');
+                }
+            );
+        }
+
+        function showModal(title, desc, isCorrect, callback) {
+            const modal = document.getElementById('feedback-modal');
+            const titleEl = document.getElementById('modal-title');
+            const btnEl = document.getElementById('modal-btn');
+            
+            titleEl.innerHTML = title;
+
+            if (title.includes('게시판')) {
+                titleEl.className = "text-2xl text-yellow-300 mb-2";
+                if (btnEl) btnEl.innerText = "🚀 게시판으로 이동하기";
+            } else if (isCorrect) {
+                titleEl.className = "text-2xl text-green-400 mb-2";
+                if (btnEl) btnEl.innerText = "확인 (다음 단계로)";
+            } else if (title.includes('경고') || title.includes('위기')) {
+                titleEl.className = "text-2xl text-red-400 mb-2 animate-pulse";
+                if (btnEl) btnEl.innerText = "다시 선택하기";
+            } else {
+                titleEl.className = "text-2xl text-red-400 mb-2";
+                if (btnEl) btnEl.innerText = "다시 선택하기";
+            }
+
+            document.getElementById('modal-desc').innerHTML = desc;
+            window.modalCallback = callback;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('feedback-modal').classList.add('hidden');
+            if (window.modalCallback) {
+                window.modalCallback();
+                window.modalCallback = null;
+            }
+        }
+
+        function renderTitleScreen(container) {
+            container.innerHTML = `
+                <div class="text-center space-y-8 py-4">
+                    <div class="text-red-500 text-sm md:text-base tracking-widest animate-pulse">[ HISTORICAL RPG SIMULATION ]</div>
+                    <h1 class="text-3xl md:text-4xl text-yellow-400 leading-snug">
+                        🎮 중세 권력 생존 게임<br>
+                        <span class="text-white text-xl md:text-2xl mt-2 block">― 하인리히 4세, 왕위를 지켜라! ―</span>
+                    </h1>
+                    <div class="bg-slate-900 p-5 panel-box text-yellow-200 text-sm md:text-base leading-relaxed inline-block border-2 border-slate-600">
+                        <span class="text-slate-400">▶ 핵심 탐구 질문</span><br>
+                        <span class="text-white block mt-4 whitespace-pre-line text-base md:text-lg leading-relaxed">파문을 당한 하인리히 4세는
+왜 한겨울에 알프스를 넘어
+교황을 찾아 카노사를 향했을까?</span>
+                    </div>
+                    <div class="pt-4 flex justify-center">
+                        <button onclick="nextStage()" class="pixel-btn bg-red-600 hover:bg-red-500 text-yellow-300 font-bold tracking-[0.25em] pl-[0.25em] py-3 text-lg md:text-xl text-center block w-48">
+                            START
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderStage1() {
+            document.getElementById('content-area').innerHTML = `
+                <div class="space-y-5">
+                    <div class="text-indigo-400 text-base">[ 🕹️ 1단계 ― 왕이라고 마음대로 할 수 있다고? ]</div>
+                    
+                    <div class="bg-slate-900 p-5 panel-box text-slate-200 text-sm md:text-base leading-relaxed break-keep border-l-4 border-l-indigo-500">
+                        <span class="text-yellow-400 font-bold block mb-2">📜 상황</span>
+                        “나는 신성 로마 제국의 왕 하인리히 4세다.<br>
+                        하지만 왕이라고 해서 제국의 모든 지역을 마음대로 다스릴 수 있는 것은 아니다.<br>
+                        제국 곳곳에는 강력한 제후들이 자신의 영지와 군사력을 가지고 있다.<br>
+                        왕권을 안정시키려면 이들의 협력이 필요하다.”
+                    </div>
+
+                    <div class="space-y-3 pt-2">
+                        <p class="text-yellow-300 text-sm md:text-base pb-1 font-bold">🎯 미션<br><span class="text-white font-normal">Q. 이런 상황에서 왕권을 유지하기 위해 특히 협력이 필요한 사람들은 누구일까?</span></p>
+                        <button onclick="checkStage1(1)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">① 제후와 고위 성직자</button>
+                        <button onclick="checkStage1(2)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">② 농노만 있으면 된다</button>
+                        <button onclick="checkStage1(3)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">③ 왕 혼자 모든 지역을 직접 통치한다</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkStage1(choice) {
+            if (choice === 1) {
+                showModal("✅ 역사 포인트", "맞았습니다! 신성 로마 제국의 왕은 강력한 제후들과 주교 등 여러 유력 세력의 협력이 필요했습니다. 왕이라고 해서 제국 전체를 마음대로 통제할 수 있었던 것은 아닙니다.", true, nextStage);
+            } else if (choice === 2) {
+                showModal("❌ 왜 틀렸을까?", "농민과 농노는 중세 사회에서 매우 중요한 생산자였지만, 왕권을 직접 지탱하는 핵심 정치 세력은 아니었습니다. 왕에게는 자신의 영지와 군사력을 가진 제후들의 협력이 특히 중요했습니다.", false, null);
+            } else {
+                showModal("❌ 왜 틀렸을까?", "중세의 왕은 오늘날 중앙 정부처럼 모든 지역을 직접 지배하지 못했습니다. 제국 곳곳에는 강력한 제후들이 자신의 영지와 군사력을 가지고 있었습니다.", false, null);
+            }
+        }
+
+        function renderStage2() {
+            document.getElementById('content-area').innerHTML = `
+                <div class="space-y-5">
+                    <div class="text-indigo-400 text-base">[ 🕹️ 2단계 ― 주교는 누구의 사람인가? ]</div>
+                    
+                    <div class="bg-slate-900 p-5 panel-box text-slate-200 text-sm md:text-base leading-relaxed break-keep border-l-4 border-l-indigo-500">
+                        <span class="text-yellow-400 font-bold block mb-2">📜 상황</span>
+                        “대주교와 주교는 단순한 종교 지도자만이 아니다.<br>
+                        넓은 토지와 재산을 가지고 있으며 정치적으로도 큰 영향력을 가진다.<br>
+                        왕권을 안정시키려면 내가 믿을 수 있는 성직자가 필요하다.<br>
+                        그런데 교황 그레고리우스 7세는 세속 군주가 고위 성직자의 임명과 서임에 개입하는 것을 문제 삼기 시작했다.”
+                    </div>
+
+                    <div class="bg-slate-950 p-4 border-2 border-slate-700 panel-box text-xs md:text-sm space-y-2">
+                        <div class="text-yellow-400 font-bold">⚔️ 개념 정리: 성직자 서임권을 둘러싼 갈등</div>
+                        <div class="flex justify-around items-center text-center pt-2">
+                            <div class="text-yellow-300">👑 왕<br><span class="text-slate-300 text-xs">“주교는 정치적으로도 중요하다!”</span></div>
+                            <div class="text-red-400 font-bold text-lg">VS</div>
+                            <div class="text-blue-300">✝️ 교황<br><span class="text-slate-300 text-xs">“성직자는 세속 군주의 지배에서 벗어나야 한다!”</span></div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 pt-2">
+                        <button onclick="chooseStage2('A')" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-yellow-300">
+                            [선택 A] “왕에게도 성직자 임명에 개입할 권한이 있다!”<br>
+                            <span class="text-xs text-slate-400 mt-2 block">👑 왕권 +10 / ✝️ 교황 관계 -40</span>
+                        </button>
+                        <button onclick="chooseStage2('B')" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-blue-300">
+                            [선택 B] “교황의 요구를 받아들이고 성직자 임명에서 물러난다.”<br>
+                            <span class="text-xs text-slate-400 mt-2 block">👑 왕권 -10 / ✝️ 교황 관계 +10</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function chooseStage2(type) {
+            saveState();
+            if (type === 'A') {
+                kingPower = Math.min(100, kingPower + 10);
+                popeRelation = Math.max(0, popeRelation - 40);
+                showModal("⚔️ 선택의 결과", "주교는 종교 지도자인 동시에 넓은 토지와 정치적 영향력을 가진 중요한 세력이었습니다. 왕에게 성직자 임명 문제는 단순한 종교 문제가 아니라 왕권과도 관련된 문제였습니다. 하지만 교황과의 갈등은 크게 심화됩니다.", true, () => {
+                    currentStage++;
+                    renderStage();
+                });
+            } else {
+                kingPower = Math.max(0, kingPower - 10);
+                popeRelation = Math.min(100, popeRelation + 10);
+                showModal("⚖️ 선택의 결과", "교황과의 충돌은 줄일 수 있습니다. 그러나 왕이 성직자들에게 행사하던 정치적 영향력도 줄어들게 됩니다.", true, () => {
+                    currentStage++;
+                    renderStage();
+                });
+            }
+        }
+
+        function renderStage3() {
+            document.getElementById('content-area').innerHTML = `
+                <div class="space-y-5">
+                    <div class="text-red-400 text-base animate-pulse">[ 🕹️ 3단계 ― 🚨 파문! 왕위가 흔들린다 ]</div>
+                    
+                    <div class="bg-red-950/60 border-2 border-red-700 p-5 panel-box text-slate-200 text-sm md:text-base leading-relaxed space-y-3 border-l-4 border-l-red-500 break-keep">
+                        <span class="text-yellow-400 font-bold block">📜 상황</span>
+                        <p class="text-red-300 text-base md:text-lg">“결국 1076년, 교황 그레고리우스 7세가 나를 파문했다!”</p>
+                        <div class="bg-red-900/50 p-3 border border-red-800 rounded-sm">
+                            <span class="text-yellow-400 font-bold">⚠️ 파문 발생!</span><br>
+                            <span class="text-slate-200 text-xs md:text-sm">파문: 교회 공동체에서 배제하는 교회의 처벌</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-900 p-4 panel-box text-sm space-y-3">
+                        <p class="text-yellow-300 text-base">질문: “그런데 왕이 파문당한 것이 왜 정치적으로도 위험했을까?”</p>
+                        <button onclick="showHint()" class="pixel-btn bg-indigo-700 hover:bg-indigo-600 px-5 py-2 text-xs md:text-sm text-white">💡 힌트 보기 ("요람에서 무덤까지")</button>
+                        
+                        <div id="hint-box" class="hidden text-xs md:text-sm text-slate-300 bg-slate-950 p-4 border-2 border-slate-700 space-y-2">
+                            <p class="text-indigo-300 font-bold">💡 힌트 ― “요람에서 무덤까지”</p>
+                            <p class="flex items-center space-x-1 flex-wrap text-xs md:text-sm">
+                                <span>👶 세례</span> <span>➔</span> <span>⛪ 미사와 신앙생활</span> <span>➔</span> <span>💍 혼인</span> <span>➔</span> <span>🙏 고해와 종교생활</span> <span>➔</span> <span>⚰️ 장례와 매장</span>
+                            </p>
+                            <p class="text-yellow-200 pt-2 border-t border-slate-800 leading-relaxed">“중세 서유럽에서 교회는 사람의 출생부터 죽음까지 삶의 중요한 순간에 깊이 관여하였다.”</p>
+                        </div>
+                    </div>
+
+                    <!-- 백성들의 반응 -->
+                    <div class="space-y-2">
+                        <p class="text-yellow-400 text-sm font-bold">👥 백성들의 반응</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-slate-300">
+                            <div class="bg-slate-950 p-3 border border-slate-700 panel-box">
+                                <span class="text-yellow-300 font-bold">👨‍🌾 농민</span><br>
+                                “왕이 교회에서 파문당했다고?”
+                            </div>
+                            <div class="bg-slate-950 p-3 border border-slate-700 panel-box">
+                                <span class="text-yellow-300 font-bold">👩 마을 주민</span><br>
+                                “우리 삶에서 교회가 이렇게 중요한데, 교황에게 파문당한 왕이라니….”
+                            </div>
+                            <div class="bg-slate-950 p-3 border border-slate-700 panel-box">
+                                <span class="text-yellow-300 font-bold">🧑‍🌾 다른 주민</span><br>
+                                “파문당한 왕의 권위가 예전과 같을까?”
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-400 pt-1 leading-normal">※ 안내: 모든 백성이 실제로 하인리히 4세에게 등을 돌렸다는 의미는 아니다. 파문은 중세 크리스트교 사회에서 왕의 종교적·사회적 권위를 흔들 수 있는 사건이었다.</p>
+                    </div>
+
+                    <!-- 제후들의 반응 -->
+                    <div class="bg-slate-900 p-4 panel-box border-l-4 border-l-red-500 space-y-2">
+                        <p class="text-red-400 font-bold text-sm">🏰 제후들의 반응 (👑 왕권 50 ➔ 20)</p>
+                        <p class="text-slate-200 text-xs md:text-sm">“파문당한 왕에게 계속 복종해야 하는가?”</p>
+                        <p class="text-slate-200 text-xs md:text-sm">“하인리히가 파문을 풀지 못한다면 새로운 왕을 세우는 것도 가능하지 않겠는가?”</p>
+                    </div>
+
+                    <div class="space-y-3 pt-2">
+                        <p class="text-yellow-300 text-sm md:text-base font-bold">🔍 추론 퀴즈<br><span class="text-white font-normal">왜 파문이 하인리히 4세의 정치적 위기로 이어질 수 있었을까?</span></p>
+                        <button onclick="checkStage3(1)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">① 파문을 당하면 왕의 군대가 모두 사라지기 때문에</button>
+                        <button onclick="checkStage3(2)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">② 중세 사회에서 교회의 영향력이 컸고, 반대 제후들이 파문을 왕에게 반대하는 명분으로 이용할 수 있었기 때문에</button>
+                        <button onclick="checkStage3(3)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">③ 교황이 신성 로마 제국의 모든 군대를 직접 지휘했기 때문에</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showHint() {
+            document.getElementById('hint-box').classList.toggle('hidden');
+        }
+
+        function checkStage3(choice) {
+            if (choice === 1) {
+                showModal("❌ 왜 틀렸을까?", "파문을 당했다고 왕의 군대가 갑자기 사라지는 것은 아닙니다. 더 큰 문제는 왕의 권위가 흔들리고, 반대 제후들이 이를 정치적으로 이용할 수 있었다는 점입니다.", false, null);
+            } else if (choice === 3) {
+                showModal("❌ 왜 틀렸을까?", "교황이 신성 로마 제국의 군대를 직접 지휘했던 것은 아닙니다. 교황의 힘은 강한 종교적 권위에서 나왔고, 그것이 정치에도 영향을 줄 수 있었습니다.", false, null);
+            } else {
+                saveState();
+                kingPower = 20;
+                showModal("✅ 역사 포인트", "맞았습니다! 중세 교회는 사람들의 삶에 ‘요람에서 무덤까지’ 깊은 영향을 미쳤습니다. 따라서 왕의 파문은 종교적 문제를 넘어 왕의 권위를 흔들 수 있었고, 반대 제후들은 이를 왕을 압박하는 명분으로 활용했습니다.", true, renderStage3Choices);
+            }
+        }
+
+        function renderStage3Choices() {
+            const container = document.getElementById('content-area');
+            updateStatusBar();
+            
+            container.innerHTML = `
+                <div class="space-y-5">
+                    <div class="bg-slate-950 p-4 border-2 border-slate-700 panel-box space-y-2 text-xs md:text-sm">
+                        <p class="text-yellow-400 font-bold">📌 인과관계 정리</p>
+                        <p class="text-slate-300 leading-relaxed">
+                            교회의 영향력 (‘요람에서 무덤까지’)<br>
+                            ➔ 왕의 파문<br>
+                            ➔ 왕의 종교적·사회적 권위 약화<br>
+                            ➔ 사람들의 불안<br>
+                            ➔ 반대 제후들의 정치적 움직임<br>
+                            ➔ <span class="text-red-400 font-bold">👑 왕위 위기</span>
+                        </p>
+                    </div>
+
+                    <div class="space-y-4 pt-2">
+                        <p class="text-red-400 text-base font-bold animate-pulse">⚔️ 운명의 선택</p>
+                        <button onclick="chooseStage3Action('A')" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-red-300">
+                            [선택 A] “군대를 모아 교황과 끝까지 싸운다!”<br>
+                            <span class="text-xs text-slate-400 mt-2 block">⚠️ 전략 경고 (👑 왕권 20 ➔ 5, 다시 선택)</span>
+                        </button>
+                        <button onclick="chooseStage3Action('B')" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-green-300">
+                            [선택 B] “먼저 교황을 만나 파문을 풀어 달라고 요청한다!”<br>
+                            <span class="text-xs text-slate-400 mt-2 block">🏔️ CANOSSA (카노사 성으로 이동)</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function chooseStage3Action(type) {
+            if (type === 'A') {
+                saveState();
+                kingPower = 5;
+                updateStatusBar();
+                showModal("⚠️ 전략 경고", "군대를 준비한다고 파문이 사라지는 것은 아닙니다. 그동안 반대 제후들이 새로운 왕을 세울 움직임은 계속되고 있습니다. 지금 가장 급한 문제는 교황과 전쟁하는 것일까요, 아니면 왕위를 흔드는 파문을 해결하는 것일까요?", false, renderStage3Choices);
+            } else {
+                showModal("✅ 전략 선택", "파문을 풀 수 있다면 반대 제후들이 왕을 공격하는 명분을 약화시킬 수 있습니다. 하인리히 4세는 한겨울에 알프스를 넘어 교황이 머물고 있던 카노사로 향합니다.", true, nextStage);
+            }
+        }
+
+        function renderStage4() {
+            document.getElementById('content-area').innerHTML = `
+                <div class="space-y-5">
+                    <div class="text-indigo-400 text-base">[ 🕹️ 4단계 ― 카노사의 굴욕 ]</div>
+                    
+                    <div class="bg-slate-950 p-2 panel-box shadow-md border-2 border-slate-700">
+                        <img src="./Road_to_Canossa.jpg" alt="카노사의 굴욕 일러스트" class="w-full h-48 md:h-56 object-cover" onerror="this.src='https://placehold.co/600x200/1e293b/94a3b8?text=Road+to+Canossa+Image+Missing'">
+                    </div>
+
+                    <div class="bg-slate-900 p-5 panel-box text-slate-200 text-sm md:text-base leading-relaxed border-l-4 border-l-indigo-500 break-keep">
+                        <span class="text-yellow-400 font-bold block mb-2">📜 상황</span>
+                        “1077년 겨울, 하인리히 4세는 카노사에 도착했다.<br>
+                        왕의 화려한 복장을 벗고 소박한 참회자의 옷을 입은 채 맨발로 사흘 동안 용서를 청했다.<br>
+                        마침내 교황 그레고리우스 7세가 그의 파문을 풀어 주었다. (✝️ 파문 해제!)”
+                    </div>
+                    
+                    <div class="space-y-3 pt-2">
+                        <p class="text-yellow-300 text-sm md:text-base font-bold">📜 역사 퀴즈 1<br><span class="text-white font-normal">1077년 하인리히 4세가 교황에게 용서를 구하고 파문에서 벗어난 사건은?</span></p>
+                        <button onclick="checkStage4_Q1(1)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-3 text-left text-sm text-slate-200">① 보름스 협약</button>
+                        <button onclick="checkStage4_Q1(2)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-3 text-left text-sm text-slate-200">② 아비뇽 유수</button>
+                        <button onclick="checkStage4_Q1(3)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-3 text-left text-sm text-slate-200">③ 카노사의 굴욕</button>
+                        <button onclick="checkStage4_Q1(4)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-3 text-left text-sm text-slate-200">④ 십자군 전쟁</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkStage4_Q1(choice) {
+            if (choice === 1) {
+                showModal("❌ 왜 틀렸을까?", "보름스 협약은 카노사보다 훨씬 뒤인 1122년, 성직자 서임권을 둘러싼 교황과 황제의 갈등을 조정한 사건입니다.", false, null);
+            } else if (choice === 2) {
+                showModal("❌ 왜 틀렸을까?", "아비뇽 유수는 14세기에 교황청이 프랑스의 아비뇽으로 옮겨간 사건입니다. 하인리히 4세와 그레고리우스 7세의 갈등보다 훨씬 뒤의 일입니다.", false, null);
+            } else if (choice === 4) {
+                showModal("❌ 왜 틀렸을까?", "십자군 전쟁은 서유럽 크리스트교 세력이 성지를 되찾는다는 명분으로 벌인 원정입니다. 하인리히 4세의 파문 해제 사건과는 다릅니다.", false, null);
+            } else {
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                }
+                showModal("✅ 역사 포인트", "맞았습니다! 1077년 하인리히 4세가 카노사에서 교황에게 용서를 구해 파문을 해제받은 사건을 카노사의 굴욕이라고 합니다. 🎉", true, renderStage4_Q2);
+            }
+        }
+
+        function renderStage4_Q2() {
+            const container = document.getElementById('content-area');
+            container.innerHTML = `
+                <div class="space-y-5">
+                    <div class="text-indigo-400 text-base">[ 🕹️ 4단계 ― 카노사의 굴욕 (속편) ]</div>
+                    
+                    <div class="space-y-3 pt-2">
+                        <p class="text-yellow-300 text-sm md:text-base font-bold">📜 역사 퀴즈 2<br><span class="text-white font-normal">카노사에서 파문이 풀린 것은 하인리히 4세에게 어떤 의미가 있었을까?</span></p>
+                        <button onclick="checkStage4_Q2(1)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">① 모든 왕권을 포기했다.</button>
+                        <button onclick="checkStage4_Q2(2)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">② 왕위를 위협하던 정치적 위기를 해결할 시간을 얻었다.</button>
+                        <button onclick="checkStage4_Q2(3)" class="pixel-btn bg-slate-900 hover:bg-slate-800 w-full p-4 text-left text-sm md:text-base text-slate-200">③ 신성 로마 제국을 교황에게 넘겼다.</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkStage4_Q2(choice) {
+            if (choice === 1) {
+                showModal("❌ 왜 틀렸을까?", "하인리히 4세가 카노사에서 모든 왕의 권한을 포기한 것은 아닙니다. 실제로 이후에도 그는 교황 및 제후들과 계속 싸웠습니다.", false, null);
+            } else if (choice === 3) {
+                showModal("❌ 왜 틀렸을까?", "교황이 신성 로마 제국을 직접 통치하게 된 것은 아닙니다. 카노사의 핵심은 하인리히가 파문을 해제받았다는 것입니다.", false, null);
+            } else {
+                showModal("✅ 역사 포인트", "맞았습니다! 파문이 풀리면서 반대 제후들이 하인리히를 공격할 중요한 명분 하나가 약해졌습니다. 따라서 카노사행은 굴욕적인 행동이면서 동시에 왕위를 지키기 위한 정치적 선택이기도 했습니다.", true, nextStage);
+            }
+        }
+
+        function renderStage5() {
+            document.getElementById('content-area').innerHTML = `
+                <div class="space-y-6">
+                    <div class="text-yellow-400 text-base">[ 🕹️ 5단계 ― 진짜 엔딩 ]</div>
+                    
+                    <div class="bg-slate-900 p-5 panel-box space-y-4 border-l-4 border-l-yellow-500">
+                        <p class="text-yellow-300 text-base font-bold">“카노사에서 끝난 것이 아니다!”</p>
+                        <p class="text-slate-300 text-sm">📜 역사 타임라인</p>
+                        <div class="space-y-2 text-slate-200 text-xs md:text-sm pl-2 border-l-2 border-slate-700 leading-relaxed">
+                            <p><strong class="text-white">1077년</strong> ❄️ 카노사의 굴욕 ― 파문 해제</p>
+                            <p>↓ ⚔️ 독일 제후들과의 내전</p>
+                            <p>↓ ⚔️ 교황과 하인리히 4세의 갈등 지속</p>
+                            <p><strong class="text-white">1084년</strong> 👑 하인리히 4세 황제 대관</p>
+                            <p>↓ <strong class="text-white">1122년</strong> 📜 보름스 협약</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 p-5 panel-box space-y-4">
+                        <p class="text-yellow-300 text-sm md:text-base font-bold">❓ 최종 퀴즈<br><span class="text-white font-normal">카노사의 굴욕을 가장 적절하게 설명한 것은?</span></p>
+                        <button onclick="checkStage5(1)" class="pixel-btn bg-slate-800 hover:bg-slate-700 w-full p-3 text-left text-xs md:text-sm text-slate-200">① 교황이 무서워 하인리히 4세가 모든 권리를 포기한 사건</button>
+                        <button onclick="checkStage5(2)" class="pixel-btn bg-slate-800 hover:bg-slate-700 w-full p-3 text-left text-xs md:text-sm text-slate-200">② 교황이 신성 로마 제국을 직접 지배하게 된 사건</button>
+                        <button onclick="checkStage5(3)" class="pixel-btn bg-slate-800 hover:bg-slate-700 w-full p-3 text-left text-xs md:text-sm text-slate-200">③ 파문으로 왕위가 흔들리자 하인리히 4세가 정치적 위기를 해결하기 위해 교황에게 용서를 구한 사건</button>
+                    </div>
+
+                    <!-- 결과 카드 영역 -->
+                    <div id="final-result-section" class="hidden space-y-5 pt-6 mt-4 border-t-2 border-slate-700">
+                        
+                        <div class="bg-indigo-950/80 border-4 border-yellow-400 p-6 panel-box text-center space-y-4 shadow-lg shadow-yellow-500/10">
+                            <div class="text-yellow-400 text-xl tracking-wide font-bold">🏆 칭호 획득: 「중세 생존왕 ― 하인리히 4세」</div>
+                            
+                            <div class="text-xs md:text-sm text-slate-300 space-y-2 pt-2">
+                                <p class="text-white bg-slate-900 inline-block px-3 py-1 border border-slate-600 font-bold">📌 최종 핵심 흐름</p>
+                                <p class="leading-relaxed break-keep text-xs md:text-sm">
+                                    봉건적 정치 질서 ➔ 강력한 제후 ➔ 주교의 종교적·정치적 중요성 ➔ 왕과 교황의 성직자 서임권 갈등 ➔ 파문 ➔ 교회의 영향력 ‘요람에서 무덤까지’ ➔ 왕의 권위 약화 ➔ 반대 제후들의 움직임 ➔ 왕위 위기 ➔ 카노사의 굴욕 ➔ 파문 해제 ➔ 갈등 지속 ➔ 보름스 협약
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 다음 활동 이동 버튼 -->
+                        <div class="pt-2">
+                            <button onclick="nextStage()" class="pixel-btn bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold py-4 px-6 text-base md:text-lg w-full text-center tracking-wider flex items-center justify-center space-x-2">
+                                <span>📸 [다음 활동] 하인리히 4세 인스타그램 만들기 ▶</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkStage5(choice) {
+            if (choice === 1) {
+                showModal("❌ 왜 틀렸을까?", "하인리히 4세는 모든 권리를 포기하지 않았습니다. 카노사 이후에도 교황과의 갈등을 계속했고, 결국 1084년 황제로 대관되었습니다.", false, null);
+            } else if (choice === 2) {
+                showModal("❌ 왜 틀렸을까?", "교황이 신성 로마 제국의 통치자가 된 것은 아닙니다. 카노사는 교황과 세속 군주의 권력 관계를 보여주는 중요한 사건이지만 교황이 제국을 직접 지배한 사건은 아닙니다.", false, null);
+            } else {
+                showModal("✅ 최종 역사 포인트", "정확합니다! 하인리히 4세는 파문으로 왕의 권위가 흔들리고 반대 제후들이 왕위를 위협하자, 먼저 파문을 해결하기 위해 카노사로 향했습니다. 카노사의 굴욕은 교황권의 영향력을 보여주면서도, 하인리히 4세의 정치적 생존 전략이라는 측면을 함께 볼 필요가 있습니다.", true, () => {
+                    document.getElementById('final-result-section').classList.remove('hidden');
+                    setTimeout(() => {
+                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    }, 100);
+                });
+            }
+        }
+
+        function renderStage6() {
+            document.getElementById('content-area').innerHTML = `
+                <div class="space-y-6">
+                    <div class="text-yellow-400 text-base">[ 📸 6단계 ― 하인리히 4세의 인스타그램 작성 활동 ]</div>
+                    
+                    <div class="bg-slate-900 p-4 panel-box text-sm leading-relaxed text-slate-200 border-l-4 border-l-indigo-500">
+                        <p class="text-indigo-300 font-bold">💡 활동 안내</p>
+                        <p class="mt-1">① 카노사에서 파문을 해제받은 직후, 하인리히 4세의 입장이 되어 인스타그램 게시물을 완성해보세요.</p>
+                        <p class="mt-1">② 추천 해시태그 중 네 가지를 골라 게시물 본문을 작성한다.</p>
+                    </div>
+
+                    <!-- 입력 폼 영역 -->
+                    <div class="bg-slate-900 p-4 panel-box space-y-4 border-2 border-slate-700">
+                        <div>
+                            <label class="block text-xs text-yellow-300 mb-1">💬 게시물 본문 (하인리히 4세의 솔직한 심정 작성)</label>
+                            <textarea id="insta-caption-input" oninput="updateInstaCard()" rows="3" placeholder="알프스 산맥을 넘어 마침내 교황님께 용서를 구했다... 3일간 참회하며 파문은 풀렸으니, 이제 제후들에게 왕의 권위를 보여줄 차례다!" class="w-full bg-slate-950 border border-slate-700 text-white p-2 text-sm rounded-none focus:outline-none focus:border-indigo-500 leading-relaxed break-keep"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-yellow-300 mb-2">🏷️ 추천 해시태그 (클릭하여 추가)</label>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="addHashtag('#두고보자교황')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#두고보자교황</button>
+                                <button onclick="addHashtag('#그레고리우스7세')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#그레고리우스7세</button>
+                                <button onclick="addHashtag('#황제권')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#황제권</button>
+                                <button onclick="addHashtag('#교황권')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#교황권</button>
+                                <button onclick="addHashtag('#성직자임명')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#성직자임명</button>
+                                <button onclick="addHashtag('#카노사의굴욕')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#카노사의굴욕</button>
+                                <button onclick="addHashtag('#파문해제')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#파문해제</button>
+                                <button onclick="addHashtag('#한겨울알프스')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#한겨울알프스</button>
+                                <button onclick="addHashtag('#3일간의참회')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#3일간의참회</button>
+                                <button onclick="addHashtag('#왕위사수')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#왕위사수</button>
+                                <button onclick="addHashtag('#제후들아기다려라')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#제후들아기다려라</button>
+                                <button onclick="addHashtag('#하인리히4세')" class="pixel-btn bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 text-xs">#하인리히4세</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 실시간 인스타그램 카드 프리뷰 영역 (다운로드 대상) -->
+                    <div id="insta-card-wrapper" class="pt-2 flex justify-center">
+                        <div id="insta-card" class="w-full max-w-sm bg-black border-2 border-slate-700 text-slate-100 p-4 space-y-3 shadow-2xl font-sans">
+                            <!-- 헤더 -->
+                            <div class="flex items-center justify-between pb-2 border-b border-zinc-800">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 p-[2px]">
+                                        <div class="w-full h-full bg-black rounded-full flex items-center justify-center text-base">👑</div>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-xs text-white tracking-wide">하인리히 4세</p>
+                                        <p class="text-[10px] text-zinc-400">Canossa Castle, Italy 🏰</p>
+                                    </div>
+                                </div>
+                                <span class="text-zinc-500 text-xs">•••</span>
+                            </div>
+
+                            <!-- 이미지 영역 -->
+                            <div class="bg-zinc-900 border border-zinc-800 overflow-hidden relative">
+                                <img src="./Road_to_Canossa.jpg" alt="카노사의 굴욕" class="w-full h-52 object-cover" onerror="this.src='https://placehold.co/600x400/18181b/f59e0b?text=Road+to+Canossa'">
+                            </div>
+
+                            <!-- 반응 아이콘 -->
+                            <div class="flex justify-between items-center text-lg pt-1">
+                                <div class="flex space-x-3 text-red-500">
+                                    <span>❤️</span>
+                                    <span class="text-white">💬</span>
+                                    <span class="text-white">✈️</span>
+                                </div>
+                                <span class="text-white text-sm">🔖</span>
+                            </div>
+
+                            <p class="text-[11px] font-semibold text-zinc-300">좋아요 1,077개</p>
+
+                            <!-- 게시물 본문 & 해시태그 -->
+                            <div class="text-xs space-y-1 leading-normal break-keep">
+                                <p>
+                                    <span class="font-bold text-white mr-1">하인리히 4세</span>
+                                    <span id="preview-caption" class="text-zinc-200">알프스 산맥을 넘어 마침내 교황님께 용서를 구했다... 3일간 참회하며 파문은 풀렸으니, 이제 제후들에게 왕의 권위를 보여줄 차례다! #카노사의굴욕 #파문해제 #두고보자교황</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 pt-2">
+                        <button onclick="downloadInstaCard()" class="pixel-btn bg-green-700 hover:bg-green-600 py-4 px-4 text-sm md:text-base w-full text-white text-center font-bold tracking-wide flex items-center justify-center space-x-2">
+                            <span>📸 인스타그램 카드 이미지로 저장하기</span>
+                        </button>
+                        <button onclick="goToBoard()" class="pixel-btn bg-pink-700 hover:bg-pink-600 py-4 px-4 text-sm md:text-base w-full text-white text-center font-bold tracking-wide flex items-center justify-center space-x-2">
+                            <span>🔗 게시판에 이미지 제출하기</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            updateInstaCard();
+        }
+
+        function addHashtag(tag) {
+            const input = document.getElementById('insta-caption-input');
+            if (input) {
+                if (!input.value.includes(tag)) {
+                    input.value = (input.value.trim() + ' ' + tag).trim();
+                    updateInstaCard();
+                }
+            }
+        }
+
+        function updateInstaCard() {
+            const captionInput = document.getElementById('insta-caption-input');
+            const previewCaption = document.getElementById('preview-caption');
+
+            if (previewCaption && captionInput) {
+                previewCaption.innerText = captionInput.value.trim() !== '' ? captionInput.value.trim() : '하인리히 4세의 심정을 적어보세요...';
+            }
+        }
+
+        function downloadInstaCard() {
+            const card = document.getElementById('insta-card');
+            if (!card) return;
+
+            showModal("⏳ 이미지 생성 중", "인스타그램 카드 이미지를 생성하고 있습니다...", false, null);
+
+            html2canvas(card, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#000000"
+            }).then(canvas => {
+                closeModal();
+                const link = document.createElement('a');
+                link.download = `하인리히4세_인스타그램.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                setTimeout(() => {
+                    showModal("📸 저장 완료!", "인스타그램 카드가 <strong>.png 이미지 파일</strong>로 다운로드되었습니다!<br><br>아래 <strong>[🔗 게시판에 이미지 제출하기]</strong> 버튼을 눌러 저장된 이미지를 업로드해 주세요.", true, null);
+                }, 300);
+            }).catch(err => {
+                closeModal();
+                showModal("❌ 오류 발생", "이미지 저장 중 오류가 발생했습니다. 화면을 직접 캡처하여 게시판에 제출해 주세요.", false, null);
+            });
+        }
+
+        // 초기 화면 렌더링
+        renderStage();
+    </script>
+</body>
+</html>
